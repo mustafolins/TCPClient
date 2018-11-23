@@ -30,19 +30,19 @@ func main() {
 		// read in input from stdin
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Text to send: ")
-		text, _ := reader.ReadString('\n') // todo: change deliminater to something else
+		text, _ := reader.ReadString('\x00')
 		// send to socket
 		outgoingMessage := &jMessage{
-			Msg: text[:len(text)-1], // remove \n from message
+			Msg: text[:len(text)-1], // remove \x00 from message
 		}
 		outBytes, err := json.Marshal(outgoingMessage)
 		if err != nil {
 			continue
 		}
 		sendText := string(encrypt([]byte(outBytes), "password"))
-		fmt.Fprintf(conn, sendText+"\n")
+		fmt.Fprintf(conn, sendText+"\x00")
 		// listen for reply
-		message, _ := bufio.NewReader(conn).ReadString('\n')
+		message, _ := bufio.NewReader(conn).ReadString('\x00')
 
 		byt := decrypt([]byte(message[:len(message)-1]), "password")
 		var dat map[string]interface{}
