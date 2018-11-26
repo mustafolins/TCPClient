@@ -18,9 +18,17 @@ type jMessage struct {
 }
 
 func main() {
+	serverIP := "127.0.0.1"
+	if len(os.Args) > 1 {
+		serverIP = os.Args[1]
+	}
+	port := "3000"
+	if len(os.Args) > 2 {
+		port = os.Args[2]
+	}
 
 	// connect to this socket
-	conn, err := net.Dial("tcp", "127.0.0.1:3000")
+	conn, err := net.Dial("tcp", serverIP+":"+port)
 	if err != nil {
 		fmt.Println("Couldn't connect!")
 		return
@@ -43,7 +51,16 @@ func main() {
 		_, sendErr := fmt.Fprintf(conn, sendText+"\x00")
 		// listen for reply
 		if sendErr == nil {
-			message, recErr := bufio.NewReader(conn).ReadString('\x00')
+			reader := bufio.NewReader(conn)
+			message, recErr := reader.ReadString('\x00')
+			for reader.Buffered() > 0 {
+				// the delim might get hit do to encryption check for this and append to message
+				extraMessage, recErr := reader.ReadString('\x00')
+				if recErr != nil {
+					break
+				}
+				message += extraMessage
+			}
 			if recErr != nil {
 				continue
 			}
@@ -66,7 +83,12 @@ func encodeBase64(b []byte) []byte {
 }
 
 func decodeBase64(b []byte) []byte {
-	data, _ := base64.StdEncoding.DecodeString(string(b))
+	data, err := base64.StdEncoding.DecodeString(string(b))
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println(string(data))
+		fmt.Println(string(b))
+	}
 	return data
 }
 
@@ -87,7 +109,10 @@ func encrypt(key string, text []byte) []byte {
 
 func decrypt(key string, text []byte) []byte {
 	paddedKey := fmt.Sprintf("%032s", key)
-	block, _ := aes.NewCipher([]byte(paddedKey))
+	block, err := aes.NewCipher([]byte(paddedKey))
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	if len(text) < aes.BlockSize {
 		panic("ciphertext too short")
